@@ -16,15 +16,42 @@ export async function GET() {
     const lista = json.data || [];
 
     const dados = lista.map((item) => ({
-      pncp_id: item.numeroControlePNCP,
+      pncp_id: item.numeroControlePNCP || null,
       titulo: item.objetoCompra || "Sem título",
       orgao: item.orgaoEntidade?.razaoSocial || "Órgão",
-      valor: item.valorTotalEstimado || 0
+      valor: item.valorTotalEstimado || 0,
+      numero_compra: item.numeroCompra || null,
+      modalidade: item.modalidadeNome || null,
+      status: item.situacaoCompraNome || null,
+      link_edital: item.linkSistemaOrigem || item.linkProcessoEletronico || null,
+      itens_json: item,
+      data_publicacao: item.dataPublicacaoPncp
+        ? item.dataPublicacaoPncp.slice(0, 10)
+        : null
     }));
+
+    const ids = dados.map((item) => item.pncp_id).filter(Boolean);
+
+    const { data: existentes, error: erroExistentes } = await supabase
+      .from("licitacoes")
+      .select("pncp_id")
+      .in("pncp_id", ids);
+
+    if (erroExistentes) {
+      return Response.json({ ok: false, error: erroExistentes.message });
+    }
+
+    const idsExistentes = new Set((existentes || []).map((item) => item.pncp_id));
+
+    const novos = dados.filter((item) => !idsExistentes.has(item.pncp_id));
+
+    if (novos.length === 0) {
+      return Response.json({ ok: true, inseridos: 0, mensagem: "Nenhuma nova licitação." });
+    }
 
     const { error } = await supabase
       .from("licitacoes")
-      .upsert(dados, { onConflict: "pncp_id" });
+      .insert(novos);
 
     if (error) {
       return Response.json({ ok: false, error: error.message });
@@ -32,9 +59,8 @@ export async function GET() {
 
     return Response.json({
       ok: true,
-      total: dados.length
+      inseridos: novos.length
     });
-
   } catch (e) {
     return Response.json({ ok: false, error: e.message });
   }
