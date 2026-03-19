@@ -1,65 +1,42 @@
 import { createClient } from "@supabase/supabase-js";
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
+
 export async function GET() {
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    );
+    let inseridos = 0;
 
-    const url =
-      "https://pncp.gov.br/api/consulta/v1/contratacoes/proposta?dataFinal=20261231&codigoModalidadeContratacao=8&pagina=2&tamanhoPagina=10";
+    for (let pagina = 1; pagina <= 5; pagina++) {
+      const url = `https://pncp.gov.br/api/consulta/v1/contratacoes/proposta?dataFinal=20261231&codigoModalidadeContratacao=8&pagina=${pagina}&tamanhoPagina=10`;
 
-    const res = await fetch(url);
-    const json = await res.json();
+      const res = await fetch(url);
+      const json = await res.json();
 
-    const lista = json.data || [];
+      if (!json.data) continue;
 
-    const dados = lista.map((item) => ({
-      pncp_id: item.numeroControlePNCP || null,
-      titulo: item.objetoCompra || "Sem título",
-      orgao: item.orgaoEntidade?.razaoSocial || "Órgão",
-      valor: item.valorTotalEstimado || 0,
-      numero_compra: item.numeroCompra || null,
-      modalidade: item.modalidadeNome || null,
-      status: item.situacaoCompraNome || null,
-      link_edital: item.linkSistemaOrigem || item.linkProcessoEletronico || null,
-      itens_json: item,
-      data_publicacao: item.dataPublicacaoPncp
-        ? item.dataPublicacaoPncp.slice(0, 10)
-        : null
-    }));
+      const registros = json.data.map((item) => ({
+        titulo: item.objetoCompra,
+        orgao: item.orgaoEntidade?.razaoSocial,
+        valor: item.valorTotalEstimado,
+        numeroControlePNCP: item.numeroControlePNCP,
+      }));
 
-    const ids = dados.map((item) => item.pncp_id).filter(Boolean);
+      const { error } = await supabase
+        .from("licitacoes")
+        .upsert(registros, {
+          onConflict: "numeroControlePNCP",
+        });
 
-    const { data: existentes, error: erroExistentes } = await supabase
-      .from("licitacoes")
-      .select("pncp_id")
-      .in("pncp_id", ids);
-
-    if (erroExistentes) {
-      return Response.json({ ok: false, error: erroExistentes.message });
-    }
-
-    const idsExistentes = new Set((existentes || []).map((item) => item.pncp_id));
-
-    const novos = dados.filter((item) => !idsExistentes.has(item.pncp_id));
-
-    if (novos.length === 0) {
-      return Response.json({ ok: true, inseridos: 0, mensagem: "Nenhuma nova licitação." });
-    }
-
-    const { error } = await supabase
-      .from("licitacoes")
-      .insert(novos);
-
-    if (error) {
-      return Response.json({ ok: false, error: error.message });
+      if (!error) inseridos += registros.length;
     }
 
     return Response.json({
       ok: true,
-      inseridos: novos.length
+      inseridos,
+      mensagem: "Importação concluída",
     });
   } catch (e) {
     return Response.json({ ok: false, error: e.message });
