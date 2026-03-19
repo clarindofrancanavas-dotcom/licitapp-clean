@@ -1,7 +1,7 @@
 export async function GET() {
   try {
     const url =
-      "https://pncp.gov.br/api/consulta/v1/contratacoes/publicacao?pagina=1&tam_pagina=5&dataInicial=20250101&dataFinal=20261231";
+      "https://pncp.gov.br/api/consulta/v1/contratacoes/proposta?dataFinal=20261231&codigoModalidadeContratacao=8&pagina=1&tamanhoPagina=5";
 
     const res = await fetch(url);
     const json = await res.json();
