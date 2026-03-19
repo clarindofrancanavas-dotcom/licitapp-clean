@@ -1,36 +1,35 @@
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+import { createClient } from '@supabase/supabase-js';
 
 export async function GET() {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
+
   try {
-    const response = await fetch(
-      "https://pncp.gov.br/api/consulta/v1/contratacoes/publicacao?pagina=1"
-    );
+    // 🔹 Simulando dados (depois ligamos no PNCP real)
+    const dados = [
+      {
+        titulo: "Licitação teste automática",
+        orgao: "Prefeitura",
+        valor: 50000
+      }
+    ];
 
-    const data = await response.json();
+    const { data, error } = await supabase
+      .from('licitacoes')
+      .insert(dados);
 
-    const lista = data.data || [];
-
-    for (const item of lista) {
-      await supabase.from("licitacoes").insert({
-        pncp_id: item.id,
-        titulo: item.objetoCompra,
-        orgao: item.orgaoEntidade?.razaoSocial,
-        valor: item.valorTotalEstimado,
-        numero_compra: item.numeroCompra,
-        modalidade: item.modalidadeNome,
-        status: item.situacaoCompraNome,
-        link_edital: item.linkSistemaOrigem,
-        itens_json: item,
-      });
+    if (error) {
+      return Response.json({ ok: false, error });
     }
 
-    return Response.json({ ok: true, total: lista.length });
-  } catch (error) {
-    return Response.json({ error: error.message });
+    return Response.json({
+      ok: true,
+      inseridos: dados.length
+    });
+
+  } catch (e) {
+    return Response.json({ ok: false, error: e.message });
   }
 }
