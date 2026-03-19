@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -10,9 +10,7 @@ const supabase = createClient(
 
 export default function Home() {
   const [licitacoes, setLicitacoes] = useState([]);
-  const [titulo, setTitulo] = useState('');
-  const [orgao, setOrgao] = useState('');
-  const [valor, setValor] = useState('');
+  const [busca, setBusca] = useState('');
 
   async function carregar() {
     const { data, error } = await supabase
@@ -22,82 +20,104 @@ export default function Home() {
 
     if (error) {
       console.error(error);
-    } else {
-      setLicitacoes(data || []);
+      return;
     }
+
+    setLicitacoes(data || []);
   }
 
   useEffect(() => {
     carregar();
   }, []);
 
-  async function adicionarLicitacao(e) {
-    e.preventDefault();
+  const oportunidadesAbertas = useMemo(() => {
+    return licitacoes.filter((item) => {
+      const status = (item.status || '').toLowerCase();
+      return (
+        status.includes('recebendo proposta') ||
+        status.includes('a receber') ||
+        status.includes('recebendo')
+      );
+    });
+  }, [licitacoes]);
 
-    const { error } = await supabase.from('licitacoes').insert([
-      {
-        titulo,
-        orgao,
-        valor: valor ? Number(valor) : null
-      }
-    ]);
+  const resultadosFiltrados = useMemo(() => {
+    const termo = busca.trim().toLowerCase();
 
-    if (error) {
-      alert('Erro ao salvar.');
-      console.error(error);
-      return;
-    }
+    if (!termo) return oportunidadesAbertas;
 
-    setTitulo('');
-    setOrgao('');
-    setValor('');
-    carregar();
-  }
+    return oportunidadesAbertas.filter((item) => {
+      const texto = `
+        ${item.titulo || ''}
+        ${item.orgao || ''}
+        ${item.modalidade || ''}
+        ${item.municipio_nome || ''}
+        ${item.uf_sigla || ''}
+      `.toLowerCase();
+
+      return texto.includes(termo);
+    });
+  }, [busca, oportunidadesAbertas]);
 
   return (
-    <div style={{ padding: 20 }}>
+    <div style={{ padding: 20, fontFamily: 'Arial, sans-serif' }}>
       <h1>Licitapp</h1>
 
-      <form onSubmit={adicionarLicitacao} style={{ marginBottom: 24 }}>
-        <div style={{ marginBottom: 8 }}>
-          <input
-            placeholder="Título"
-            value={titulo}
-            onChange={(e) => setTitulo(e.target.value)}
-            style={{ padding: 8, width: 300 }}
-          />
-        </div>
+      <div style={{ marginBottom: 20 }}>
+        <input
+          type="text"
+          placeholder="Buscar por palavra-chave"
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          style={{
+            padding: 10,
+            width: 320,
+            borderRadius: 8,
+            border: '1px solid #ccc'
+          }}
+        />
+      </div>
 
-        <div style={{ marginBottom: 8 }}>
-          <input
-            placeholder="Órgão"
-            value={orgao}
-            onChange={(e) => setOrgao(e.target.value)}
-            style={{ padding: 8, width: 300 }}
-          />
-        </div>
+      <p>
+        <strong>Oportunidades abertas:</strong> {resultadosFiltrados.length}
+      </p>
 
-        <div style={{ marginBottom: 8 }}>
-          <input
-            placeholder="Valor"
-            value={valor}
-            onChange={(e) => setValor(e.target.value)}
-            style={{ padding: 8, width: 300 }}
-          />
-        </div>
+      {resultadosFiltrados.length === 0 && (
+        <p>Nenhuma oportunidade encontrada.</p>
+      )}
 
-        <button type="submit" style={{ padding: '10px 16px' }}>
-          Adicionar licitação
-        </button>
-      </form>
-
-      {licitacoes.length === 0 && <p>Nenhum dado ainda...</p>}
-
-      {licitacoes.map((item) => (
-        <div key={item.id} style={{ marginBottom: 16 }}>
-          <strong>{item.titulo}</strong> <br />
-          {item.orgao} <br />
-          R$ {item.valor}
+      {resultadosFiltrados.map((item) => (
+        <div
+          key={item.id}
+          style={{
+            marginBottom: 16,
+            padding: 16,
+            border: '1px solid #ddd',
+            borderRadius: 10,
+            background: '#fff',
+            color: '#000'
+          }}
+        >
+          <strong>{item.titulo}</strong>
+          <br />
+          <span><strong>Órgão:</strong> {item.orgao}</span>
+          <br />
+          <span><strong>Modalidade:</strong> {item.modalidade || 'Não informado'}</span>
+          <br />
+          <span><strong>Status:</strong> {item.status || 'Não informado'}</span>
+          <br />
+          <span><strong>Município/UF:</strong> {item.municipio_nome || '-'} / {item.uf_sigla || '-'}</span>
+          <br />
+          <span><strong>Valor:</strong> R$ {item.valor || 0}</span>
+          <br />
+          {item.link_processo && (
+            <>
+              <a href={item.link_processo} target="_blank" rel="noreferrer">
+                Abrir edital / processo
+              </a>
+              <br />
+            </>
+          )}
         </div>
       ))}
     </div>
