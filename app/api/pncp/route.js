@@ -7,16 +7,20 @@ export async function GET() {
   );
 
   try {
-    // 🔹 Simulando dados (depois ligamos no PNCP real)
-    const dados = [
-      {
-        titulo: "Licitação teste automática",
-        orgao: "Prefeitura",
-        valor: 50000
-      }
-    ];
+    // 🔥 API REAL DO PNCP
+    const res = await fetch(
+      "https://pncp.gov.br/api/consulta/v1/contratacoes/publicacao?pagina=1&tam_pagina=5"
+    );
 
-    const { data, error } = await supabase
+    const json = await res.json();
+
+    const dados = json.data.map(item => ({
+      titulo: item.objetoCompra || "Sem título",
+      orgao: item.orgaoEntidade?.razaoSocial || "Órgão não informado",
+      valor: item.valorTotalEstimado || 0
+    }));
+
+    const { error } = await supabase
       .from('licitacoes')
       .insert(dados);
 
