@@ -9,7 +9,7 @@ export async function GET() {
   try {
     let inseridos = 0;
 
-    for (let pagina = 1; pagina <= 5; pagina++) {
+    for (let pagina = 1; pagina <= 10; pagina++) {
       const url = `https://pncp.gov.br/api/consulta/v1/contratacoes/proposta?dataFinal=20261231&codigoModalidadeContratacao=8&pagina=${pagina}&tamanhoPagina=10`;
 
       const res = await fetch(url);
