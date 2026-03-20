@@ -31,15 +31,16 @@ export default function Home() {
   }, []);
 
   const oportunidadesAbertas = useMemo(() => {
-    return licitacoes.filter((item) => {
-      const status = (item.status || '').toLowerCase();
-      return (
-        status.includes('recebendo proposta') ||
-        status.includes('a receber') ||
-        status.includes('recebendo')
-      );
-    });
-  }, [licitacoes]);
+  return licitacoes.filter((item) => {
+    const status = (item.status || '').toLowerCase();
+
+    return (
+      status.includes('divulgada') ||
+      status.includes('aberta') ||
+      status.includes('andamento')
+    );
+  });
+}, [licitacoes]);
 
   const resultadosFiltrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
